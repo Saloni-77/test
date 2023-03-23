@@ -1,0 +1,85 @@
+
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from Console.package import Functions
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+
+f = Functions()
+
+data = f.get_args("data")
+# your code here
+
+#Segments of LGD_Seg = S1_US_Core
+S1_Comb_Data = data[(data['LGD_Seg'] == 'S1_US_Core')]
+S1_PCO_Comb_Data = S1_Comb_Data.copy()
+S1_LCO_Comb_Data = S1_Comb_Data[S1_Comb_Data['CO_Flag'] == 1]
+S1_LNCO_Comb_Data = S1_Comb_Data[S1_Comb_Data['CO_Flag'] != 1]
+S1_DLGD_Comb_Data = S1_Comb_Data.copy()
+
+#Segments of LGD_Seg = S2_LATAM
+S2_Comb_Data = data[(data['LGD_Seg'] == 'S2_LATAM')]
+S2_PCO_Comb_Data = S2_Comb_Data.copy()
+S2_LCO_Comb_Data = S2_Comb_Data[S2_Comb_Data['CO_Flag'] == 1]
+S2_LNCO_Comb_Data = S2_Comb_Data[S2_Comb_Data['CO_Flag'] != 1]
+S2_DLGD_Comb_Data = S2_Comb_Data.copy()
+
+#Segments of LGD_Seg = S3_ABL
+S3_Comb_Data = data[(data['LGD_Seg'] == 'S3_ABL')]
+S3_DLGD_Comb_Data = S3_Comb_Data.copy()
+
+#Segments of LGD_Seg = S5_Proj_fin
+
+S5_Comb_Data = data[(data['LGD_Seg'] == 'S5_Proj_fin')]
+S5_PCO_Comb_Data = S5_Comb_Data.copy()
+S5_LCO_Comb_Data = S5_Comb_Data[S5_Comb_Data['CO_Flag'] == 1]
+S5_LNCO_Comb_Data = S5_Comb_Data[S5_Comb_Data['CO_Flag'] != 1]
+
+#VIF Test list of colums
+l_str = [
+    ['S1_PCO_Comb_Data', 'CO_Flag', ['Intercept', 'Guarantee_Flag', 'Term_Loan_Flag', 'FLBR_qoq_2'], 'S1', 'PCO', 'S1_US_Core'], 
+    ['S1_LCO_Comb_Data', 'LGD_1_cf', ['Collateral_Flag', 'FRTB3M_dyoy_2'], 'S1', 'LCO', 'S1_US_Core'],
+    ['S1_LNCO_Comb_Data', 'LGD_1_cf', ['Intercept', 'Seniority_Flag', 'Guarantee_Flag', 'Term_Loan_Flag', 'FRLENDO_dyoy'], 'S1','LNCO','S1_US_Core'],
+    ['S1_DLGD_Comb_Data', 'LGD_1_cf', ['Intercept', 'Seniority_Flag', 'Guarantee_Flag', 'Term_Loan_Flag', 'FRTB3M_dyoy_2'], 'S1','DLGD','S1_US_Core'],
+    ['S2_PCO_Comb_Data', 'CO_Flag', ['Intercept', 'Guarantee_Flag', 'Term_Loan_Flag', 'FLBR_qoq_2'], 'S2', 'PCO', 'S2_LATAM'], 
+    ['S2_LCO_Comb_Data', 'LGD_1_cf', ['Collateral_Flag', 'FRTB3M_dyoy_2'], 'S2', 'LCO', 'S2_LATAM'],
+    ['S2_LNCO_Comb_Data', 'LGD_1_cf', ['Intercept', 'Seniority_Flag', 'Guarantee_Flag', 'Term_Loan_Flag', 'FRLENDO_dyoy'], 'S2','LNCO','S2_LATAM'],
+    ['S2_DLGD_Comb_Data', 'LGD_1_cf', ['Intercept', 'Seniority_Flag', 'Guarantee_Flag', 'Term_Loan_Flag', 'FRTB3M_dyoy_2'], 'S2','DLGD','S2_LATAM'],
+    ['S5_PCO_Comb_Data', 'CO_Flag', ['Intercept', 'Term_Loan_Flag', 'FDEBT_qoq_2'], 'S5', 'PCO', 'S5_Proj_Fin'],
+    ['S5_LNCO_Comb_Data', 'LGD_1_cf', ['Intercept', 'FSP500Q_qoq', 'FRFED_dyoy_1'], 'S5', 'LNCO', 'S5_Proj_Fin'],
+    ]
+
+
+#VIF Test
+class VIF:
+    def __init__(self, data):
+        self.data = data
+
+    def vif(self):
+        vif_data = pd.DataFrame()
+        vif_data['Feature'] = self.data.columns
+        # calculating VIF for each feature
+        vif_data['VIF']= [variance_inflation_factor(self.data.values, i) for i in range(len(self.data.columns))]
+        return vif_data
+    
+LGD_VIF = pd.DataFrame()
+AS_OF_YM = 202012
+for xi in range(len(l_str))[:]:
+    data_vif = globals()[l_str[xi][0]]
+    fixed_var = l_str[xi][1]
+    variables = l_str[xi][2]
+    seg = l_str[xi][3]
+    Model = l_str[xi][4]
+    sub_seg = l_str[xi][5]
+     
+    data_vif = data_vif.copy()
+    data_vif.loc[:, 'Intercept'] = 1.0
+    z2 = VIF(data_vif[variables]).vif()
+    z2.insert(0, 'AS_OF_YM', AS_OF_YM)
+    z2.insert(1, 'LGD_Seg', sub_seg)
+    z2.insert(2, 'Model_Type', Model)
+    #print(z2)
+    LGD_VIF = LGD_VIF.append(z2)
+    
+f.save_table(LGD_VIF.reset_index(drop=True))
